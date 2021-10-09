@@ -75,7 +75,7 @@ class RLPolicy(AbsPolicy):
         return self._exploration_params
 
     @abstractmethod
-    def __call__(self, states: np.ndarray) -> object:
+    def __call__(self, states: np.ndarray) -> np.ndarray:
         pass
 
     @abstractmethod
@@ -127,7 +127,7 @@ class RLPolicy(AbsPolicy):
     def data_parallel(self, *args, **kwargs) -> None:
         """"Initialize a proxy in the policy, for data-parallel training.
         Using the same arguments as `Proxy`."""
-        self._proxy = Proxy(*args, **kwargs)
+        pass
 
     def data_parallel_with_existing_proxy(self, proxy: Proxy) -> None:
         """"Initialize a proxy in the policy with an existing one, for data-parallel training."""

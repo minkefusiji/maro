@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import Tuple
+
+import numpy as np
 
 
 class DiscreteInterface:
@@ -19,19 +21,28 @@ class ContinuousInterface:
 
 class QNetworkInterface:
     @abstractmethod
-    def q_value(self, state: object, action: object) -> float:
+    def q_values(self, states: np.ndarray, actions: np.ndarray) -> np.ndarray:
+        """
+        [batch_size, state_dim] + [batch_size, action_dim] => [batch_size, 1]
+        """
         pass
 
 
 class DiscreteQNetworkInterface(QNetworkInterface):
     @abstractmethod
-    def q_values_for_all_actions(self, state: object) -> List[float]:
+    def q_values_for_all_actions(self, states: np.ndarray) -> np.ndarray:
+        """
+        [batch_size, state_dim] => [batch_size, action_num]
+        """
         pass
 
 
 class VNetWorkInterface:
     @abstractmethod
-    def v_value(self, state: object) -> float:
+    def v_values(self, states: np.ndarray) -> np.ndarray:
+        """
+        [batch_size, state_dim] => [batch_size, 1]
+        """
         pass
 
 

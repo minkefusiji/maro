@@ -207,12 +207,12 @@ class DQN(RLPolicy, DiscreteInterface, ValueBasedInterface):
     def data_parallel(self, *args, **kwargs) -> None:
         raise NotImplementedError  # TODO
 
-    def q_values_for_all_actions(self, state: torch.Tensor) -> List[float]:
-        q_values: torch.Tensor = self._q_net.q_values_for_all_actions(state.reshape(-1, 1))
-        return q_values.reshape(-1).numpy().tolist()
+    def q_values_for_all_actions(self, states: np.ndarray) -> np.ndarray:
+        return self._q_net.q_values_for_all_actions(torch.Tensor(states)).numpy()
 
-    def q_value(self, state: torch.Tensor, action: int) -> float:
-        return self.q_values_for_all_actions(state)[action]
+    def q_values(self, states: np.ndarray, actions: np.ndarray) -> np.ndarray:
+        q_matrix = self.q_values_for_all_actions(states)  # [batch_size, action_num]
+        return np.take_along_axis(q_matrix, actions, axis=1)
 
     def action_scope(self) -> set:
         return set(range(self.action_num()))
