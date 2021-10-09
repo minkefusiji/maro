@@ -4,7 +4,7 @@ from typing import Tuple
 import torch
 from torch.distributions import Categorical
 
-from maro.rl.modeling_v2.base_model import DiscretePolicyNetworkInterface, PolicyNetwork
+from .base_model import DiscretePolicyNetworkInterface, PolicyNetwork
 
 
 class ActorCriticCoreModel(PolicyNetwork):
@@ -60,7 +60,7 @@ class DiscreteQActorCriticNet(DiscreteActorCriticNet, QCriticInterface):
 
     def q_critic(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
         """
-        [batch_size, state_dim] + [batch_size, action_dim] => [batch_size, 1]
+        [batch_size, state_dim] + [batch_size, 1] => [batch_size, 1]
         """
         q_matrix = self.q_critic_for_all_actions(states)  # [batch_size, action_num]
         return q_matrix.gather(dim=1, index=actions).reshape(-1)

@@ -3,7 +3,7 @@ from typing import Tuple
 
 import torch
 
-from maro.rl.modeling_v2.base_model import DiscretePolicyNetworkInterface, PolicyNetwork
+from .base_model import DiscretePolicyNetworkInterface, PolicyNetwork
 
 
 class QNetwork(PolicyNetwork):
