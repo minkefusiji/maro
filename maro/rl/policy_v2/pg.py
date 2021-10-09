@@ -12,9 +12,10 @@ from maro.rl.modeling_v2.pg_network import DiscretePolicyGradientNetwork
 from maro.rl.utils import MsgKey, MsgTag, average_grads, discount_cumsum
 from .buffer import Buffer
 from .policy_base import RLPolicy
+from .policy_interfaces import DiscreteInterface, PolicyGradientInterface
 
 
-class PolicyGradient(RLPolicy):
+class DiscretePolicyGradient(RLPolicy, DiscreteInterface, PolicyGradientInterface):
     def __init__(
         self,
         name: str,
@@ -25,7 +26,7 @@ class PolicyGradient(RLPolicy):
         get_loss_on_rollout: bool = False,
         device: str = None
     ) -> None:
-        super(PolicyGradient, self).__init__(name, device)
+        super(DiscretePolicyGradient, self).__init__(name, device)
 
         if not isinstance(policy_net, DiscretePolicyGradientNetwork):
             raise TypeError("model must be an instance of 'DiscretePolicyGradientNetwork'")
@@ -55,6 +56,9 @@ class PolicyGradient(RLPolicy):
 
     def data_parallel(self, *args, **kwargs) -> None:
         raise NotImplementedError  # TODO
+
+    def action_scope(self) -> set:
+        return set(range(self._policy_net.action_num))
 
     def record(
         self,

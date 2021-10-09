@@ -13,9 +13,10 @@ from maro.rl.modeling_v2.ac_network import DiscreteVActorCriticNet
 from maro.rl.utils import MsgKey, MsgTag, average_grads, discount_cumsum
 from .buffer import Buffer
 from .policy_base import RLPolicy
+from .policy_interfaces import DiscreteInterface, PolicyGradientInterface
 
 
-class ActorCritic(RLPolicy):
+class DiscreteVActorCritic(RLPolicy, DiscreteInterface, PolicyGradientInterface):
     def __init__(
         self,
         name: str,
@@ -32,7 +33,7 @@ class ActorCritic(RLPolicy):
         get_loss_on_rollout: bool = False,
         device: str = None
     ) -> None:
-        super(ActorCritic, self).__init__(name, device)
+        super(DiscreteVActorCritic, self).__init__(name, device)
 
         if not isinstance(ac_net, DiscreteVActorCriticNet):
             raise TypeError("model must be an instance of 'DiscreteVActorCriticNet'")
@@ -72,6 +73,9 @@ class ActorCritic(RLPolicy):
 
     def data_parallel(self, *args, **kwargs) -> None:
         raise NotImplementedError  # TODO
+
+    def action_scope(self) -> set:
+        return set(range(self._ac_net.action_num))
 
     def record(
         self,
