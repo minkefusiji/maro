@@ -31,9 +31,10 @@ class DiscreteVActorCritic(RLPolicy, DiscreteInterface, PolicyGradientInterface)
         lam: float = 0.9,
         max_trajectory_len: int = 10000,
         get_loss_on_rollout: bool = False,
-        device: str = None
+        device: str = None,
+        default_greedy: bool = True
     ) -> None:
-        super(DiscreteVActorCritic, self).__init__(name, device)
+        super(DiscreteVActorCritic, self).__init__(name=name, device=device, default_greedy=default_greedy)
 
         if not isinstance(ac_net, DiscreteVActorCriticNet):
             raise TypeError("model must be an instance of 'DiscreteVActorCriticNet'")
@@ -52,19 +53,26 @@ class DiscreteVActorCritic(RLPolicy, DiscreteInterface, PolicyGradientInterface)
 
         self._buffer = defaultdict(lambda: Buffer(state_dim=self._ac_net.state_dim, size=self._max_trajectory_len))
 
-    def __call__(self, states: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def __call__(self, states: np.ndarray, greedy: bool = None) -> np.ndarray:
         """Return a list of action information dict given a batch of states.
 
         An action information dict contains the action itself, the corresponding log-P value and the corresponding
         state value.
         """
+        return self.get_actions_with_logps_and_values(states, greedy)[0]
+
+    def get_actions_with_logps_and_values(
+        self, states: np.ndarray, greedy: bool = None
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         self._ac_net.eval()
         states = torch.from_numpy(states).to(self._device)
         if len(states.shape) == 1:
             states = states.unsqueeze(dim=0)
         with torch.no_grad():
             values = self._ac_net.get_values(states)
-            if self._greedy:
+            if greedy is None:
+                greedy = self._default_greedy
+            if greedy:
                 actions, logps = self._ac_net.get_actions_and_logps_greedy(states)
             else:
                 actions, logps = self._ac_net.get_actions_and_logps(states)
