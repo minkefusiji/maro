@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import List, Optional
 
 import numpy as np
@@ -7,7 +7,7 @@ import torch
 from maro.communication import Proxy
 
 
-class AbsPolicy(ABC):
+class AbsPolicy(object):
     """Abstract policy class.
 
     Args:

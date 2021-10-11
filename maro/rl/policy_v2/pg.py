@@ -63,8 +63,8 @@ class DiscretePolicyGradient(RLPolicy, DiscreteInterface, PolicyGradientInterfac
     def data_parallel(self, *args, **kwargs) -> None:
         raise NotImplementedError  # TODO
 
-    def action_scope(self) -> set:
-        return set(range(self._policy_net.action_num))
+    def action_num(self) -> int:
+        return self._policy_net.action_num
 
     def record(
         self,

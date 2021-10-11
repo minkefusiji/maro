@@ -217,8 +217,8 @@ class DQN(RLPolicy, DiscreteInterface, ValueBasedInterface):
         q_matrix = self.q_values_for_all_actions(states)  # [batch_size, action_num]
         return np.take_along_axis(q_matrix, actions, axis=1)
 
-    def action_scope(self) -> set:
-        return set(range(self.action_num()))
+    def action_num(self) -> int:
+        return self._q_net.action_num
 
     def record(
         self,

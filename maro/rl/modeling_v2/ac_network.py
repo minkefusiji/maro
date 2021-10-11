@@ -7,16 +7,9 @@ from torch.distributions import Categorical
 from .base_model import DiscretePolicyNetworkInterface, PolicyNetwork
 
 
-class ActorCriticCoreModel(PolicyNetwork):
+class ActorCriticCoreModel(PolicyNetwork, ABC):
     def __init__(self, state_dim: int, action_dim: int) -> None:
         super(ActorCriticCoreModel, self).__init__(state_dim, action_dim)
-
-    @abstractmethod
-    def actor(self, states: torch.Tensor) -> torch.Tensor:
-        """
-        [batch_size, state_dim] => [batch_size, action_dim]
-        """
-        pass
 
 
 class QCriticInterface:

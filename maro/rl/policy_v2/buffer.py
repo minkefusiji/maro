@@ -90,6 +90,7 @@ class Buffer:
         )
         if len(self._pool) > self._size:
             self._pool.popleft()
+            # TODO: raise MLE error?
 
     def get(self) -> dict:
         """Retrieve the latest trajectory segment."""

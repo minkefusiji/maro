@@ -13,10 +13,10 @@ from maro.rl.modeling_v2.ac_network import DiscreteVActorCriticNet
 from maro.rl.utils import MsgKey, MsgTag, average_grads, discount_cumsum
 from .buffer import Buffer
 from .policy_base import RLPolicy
-from .policy_interfaces import DiscreteInterface, PolicyGradientInterface
+from .policy_interfaces import DiscreteInterface, PolicyGradientInterface, VNetWorkInterface
 
 
-class DiscreteVActorCritic(RLPolicy, DiscreteInterface, PolicyGradientInterface):
+class DiscreteVActorCritic(RLPolicy, DiscreteInterface, PolicyGradientInterface, VNetWorkInterface):
     def __init__(
         self,
         name: str,
@@ -82,8 +82,11 @@ class DiscreteVActorCritic(RLPolicy, DiscreteInterface, PolicyGradientInterface)
     def data_parallel(self, *args, **kwargs) -> None:
         raise NotImplementedError  # TODO
 
-    def action_scope(self) -> set:
-        return set(range(self._ac_net.action_num))
+    def action_num(self) -> int:
+        return self._ac_net.action_num
+
+    def v_values(self, states: np.ndarray) -> np.ndarray:
+        return self._ac_net.v_critic(torch.Tensor(states)).numpy()
 
     def record(
         self,

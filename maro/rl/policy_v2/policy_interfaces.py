@@ -5,12 +5,12 @@ import numpy as np
 
 
 class DiscreteInterface:
-    def action_num(self) -> int:
-        return len(self.action_scope())
-
     @abstractmethod
-    def action_scope(self) -> set:
+    def action_num(self) -> int:
         pass
+
+    def action_scope(self) -> list:
+        return list(range(self.action_num()))
 
 
 class ContinuousInterface:
