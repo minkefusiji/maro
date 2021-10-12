@@ -140,10 +140,9 @@ class DQN(DiscreteInterface, ValueBasedInterface, RLPolicy):
         rollout_batch_size: int = 1000,
         train_batch_size: int = 32,
         prioritized_replay_kwargs: dict = None,
-        device: str = None,
-        default_greedy: bool = True
+        device: str = None
     ):
-        super(DQN, self).__init__(name=name, device=device, default_greedy=default_greedy)
+        super(DQN, self).__init__(name=name, device=device)
 
         if exploration_scheduling_options is None:
             exploration_scheduling_options = []
@@ -189,7 +188,7 @@ class DQN(DiscreteInterface, ValueBasedInterface, RLPolicy):
             opt[1](self._exploration_params, opt[0], **opt[2]) for opt in exploration_scheduling_options
         ]
 
-    def __call__(self, states: np.ndarray, greedy: bool = None) -> object:
+    def __call__(self, states: np.ndarray) -> object:
         if self._replay_memory.size < self._warmup:
             return np.random.randint(self._num_actions, size=(states.shape[0] if len(states.shape) > 1 else 1,))
 
@@ -198,11 +197,9 @@ class DQN(DiscreteInterface, ValueBasedInterface, RLPolicy):
         if len(states.shape) == 1:
             states = states.unsqueeze(dim=0)
         with torch.no_grad():
-            actions = self._q_net.get_actions_greedy(states)
+            actions = self._q_net.get_actions_exploitation(states)
 
-        if greedy is None:
-            greedy = self._default_greedy
-        if greedy:
+        if not self._in_exploration_mode:
             return actions.cpu().numpy()
         else:
             return self._exploration_func(states, actions.cpu().numpy(), self._num_actions, **self._exploration_params)
@@ -285,10 +282,10 @@ class DQN(DiscreteInterface, ValueBasedInterface, RLPolicy):
         # get target Q values
         with torch.no_grad():
             if self._double:
-                actions_by_eval_q_net = self._q_net.get_actions_greedy(next_states)
+                actions_by_eval_q_net = self._q_net.get_actions_exploitation(next_states)
                 next_q_values = self._target_q_net.q_values(next_states, actions_by_eval_q_net)
             else:
-                actions = self._target_q_net.get_actions_greedy(next_states)
+                actions = self._target_q_net.get_actions_exploitation(next_states)
                 next_q_values = self._target_q_net.q_values(next_states, actions)
 
         target_q_values = (rewards + self._reward_discount * (1 - terminals) * next_q_values).detach()

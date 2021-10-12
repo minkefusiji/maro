@@ -61,10 +61,10 @@ class RLPolicy(AbsPolicy):
     Args:
         name (str): Name of the policy.
     """
-    def __init__(self, name: str, device: str, default_greedy: bool) -> None:
+    def __init__(self, name: str, device: str) -> None:
         super(RLPolicy, self).__init__(name)
         self._exploration_params = {}
-        self._default_greedy = default_greedy
+        self._in_exploration_mode = True
         self._proxy = Optional[Proxy]
 
         self._device = torch.device(device) if device is not None \
@@ -74,8 +74,14 @@ class RLPolicy(AbsPolicy):
     def exploration_params(self) -> dict:
         return self._exploration_params
 
+    def exploration(self) -> None:
+        self._in_exploration_mode = True
+
+    def exploitation(self) -> None:
+        self._in_exploration_mode = False
+
     @abstractmethod
-    def __call__(self, states: np.ndarray, greedy: bool = None) -> np.ndarray:
+    def __call__(self, states: np.ndarray) -> np.ndarray:
         pass
 
     @abstractmethod

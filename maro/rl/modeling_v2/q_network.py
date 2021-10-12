@@ -48,15 +48,15 @@ class DiscreteQNetwork(DiscretePolicyNetworkInterface, QNetwork):
         """
         pass
 
-    def get_actions_and_logps(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_actions_and_logps_exploration(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         raise NotImplementedError
 
     @property
     def action_num(self) -> int:
         return self._action_num
 
-    def get_actions(self, states: torch.Tensor) -> torch.Tensor:
+    def get_actions_exploration(self, states: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
-    def get_actions_greedy(self, states: torch.Tensor) -> torch.Tensor:
-        return self.get_actions_and_logps_greedy(states)[0]
+    def get_actions_exploitation(self, states: torch.Tensor) -> torch.Tensor:
+        return self.get_actions_and_logps_exploitation(states)[0]

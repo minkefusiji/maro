@@ -24,10 +24,9 @@ class DiscretePolicyGradient(DiscreteInterface, PolicyGradientInterface, RLPolic
         grad_iters: int = 1,
         max_trajectory_len: int = 10000,
         get_loss_on_rollout: bool = False,
-        device: str = None,
-        default_greedy: bool = True
+        device: str = None
     ) -> None:
-        super(DiscretePolicyGradient, self).__init__(name=name, device=device, default_greedy=default_greedy)
+        super(DiscretePolicyGradient, self).__init__(name=name, device=device)
 
         if not isinstance(policy_net, DiscretePolicyGradientNetwork):
             raise TypeError("model must be an instance of 'DiscretePolicyGradientNetwork'")
@@ -40,23 +39,21 @@ class DiscretePolicyGradient(DiscreteInterface, PolicyGradientInterface, RLPolic
 
         self._buffer = defaultdict(lambda: Buffer(state_dim=self._policy_net.state_dim, size=self._max_trajectory_len))
 
-    def __call__(self, states: np.ndarray, greedy: bool = None) -> np.ndarray:
+    def __call__(self, states: np.ndarray) -> np.ndarray:
         """Return a list of action information dict given a batch of states.
 
         An action information dict contains the action itself and the corresponding log-P value.
         """
-        return self.get_actions_with_logps(states, greedy)[0]
+        return self.get_actions_with_logps(states)[0]
 
-    def get_actions_with_logps(self, states: np.ndarray, greedy: bool = None) -> Tuple[np.ndarray, np.ndarray]:
+    def get_actions_with_logps(self, states: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         self._policy_net.eval()
         with torch.no_grad():
             states: torch.Tensor = torch.from_numpy(states).to(self._device)
-            if greedy is None:
-                greedy = self._default_greedy
-            if greedy:
-                actions, logps = self._policy_net.get_actions_and_logps_greedy(states)
+            if not self._in_exploration_mode:
+                actions, logps = self._policy_net.get_actions_and_logps_exploitation(states)
             else:
-                actions, logps = self._policy_net.get_actions_and_logps(states)
+                actions, logps = self._policy_net.get_actions_and_logps_exploration(states)
         actions, logps = actions.cpu().numpy(), logps.cpu().numpy()
         return actions, logps
 

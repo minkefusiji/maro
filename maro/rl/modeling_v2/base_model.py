@@ -96,11 +96,11 @@ class PolicyNetwork(AbsCoreModel, ABC):
         return self._action_dim
 
     @abstractmethod
-    def get_actions(self, states: torch.Tensor) -> torch.Tensor:
+    def get_actions_exploration(self, states: torch.Tensor) -> torch.Tensor:
         pass
 
     @abstractmethod
-    def get_actions_greedy(self, states: torch.Tensor) -> torch.Tensor:
+    def get_actions_exploitation(self, states: torch.Tensor) -> torch.Tensor:
         pass
 
 #
@@ -141,13 +141,13 @@ class DiscretePolicyNetworkInterface:
         return torch.log(self.get_probs(states))
 
     @abstractmethod
-    def get_actions_and_logps(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_actions_and_logps_exploration(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         [batch_size, state_dim] => [batch_size, 1] + [batch_size, 1]
         """
         pass
 
-    def get_actions_and_logps_greedy(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_actions_and_logps_exploitation(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         [batch_size, state_dim] => [batch_size, 1] + [batch_size, 1]
         """
