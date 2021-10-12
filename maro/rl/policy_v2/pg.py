@@ -15,7 +15,7 @@ from .policy_base import RLPolicy
 from .policy_interfaces import DiscreteInterface, PolicyGradientInterface
 
 
-class DiscretePolicyGradient(RLPolicy, DiscreteInterface, PolicyGradientInterface):
+class DiscretePolicyGradient(DiscreteInterface, PolicyGradientInterface, RLPolicy):
     def __init__(
         self,
         name: str,

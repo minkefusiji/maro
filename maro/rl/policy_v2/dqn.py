@@ -119,7 +119,7 @@ class PrioritizedExperienceReplay:
             return self._get(right, sampled_val - self._sum_tree[left])
 
 
-class DQN(RLPolicy, DiscreteInterface, ValueBasedInterface):
+class DQN(DiscreteInterface, ValueBasedInterface, RLPolicy):
     """TODO
     """
 

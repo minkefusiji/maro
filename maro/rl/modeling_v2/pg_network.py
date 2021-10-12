@@ -12,7 +12,7 @@ class PolicyGradientNetwork(PolicyNetwork, ABC):
         super(PolicyGradientNetwork, self).__init__(state_dim, action_dim)
 
 
-class DiscretePolicyGradientNetwork(PolicyGradientNetwork, DiscretePolicyNetworkInterface, ABC):
+class DiscretePolicyGradientNetwork(DiscretePolicyNetworkInterface, ABC, PolicyGradientNetwork):
     def __init__(self, state_dim: int, action_num: int) -> None:
         super(DiscretePolicyGradientNetwork, self).__init__(state_dim, 1)
         self._action_num = action_num

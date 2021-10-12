@@ -37,7 +37,7 @@ class DiscreteQNetworkInterface(QNetworkInterface):
         pass
 
 
-class VNetWorkInterface:
+class VNetworkInterface:
     @abstractmethod
     def v_values(self, states: np.ndarray) -> np.ndarray:
         """

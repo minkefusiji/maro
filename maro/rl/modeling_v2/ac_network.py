@@ -30,7 +30,7 @@ class VCriticInterface:
         pass
 
 
-class DiscreteActorCriticNet(ActorCriticCoreModel, DiscretePolicyNetworkInterface, ABC):
+class DiscreteActorCriticNet(DiscretePolicyNetworkInterface, ABC, ActorCriticCoreModel):
     def __init__(self, state_dim: int, action_num: int) -> None:
         super(DiscreteActorCriticNet, self).__init__(state_dim=state_dim, action_dim=1)
         self._action_num = action_num
@@ -66,7 +66,7 @@ class DiscreteQActorCriticNet(DiscreteActorCriticNet, QCriticInterface):
         pass
 
 
-class DiscreteVActorCriticNet(DiscreteActorCriticNet, VCriticInterface):
+class DiscreteVActorCriticNet(VCriticInterface, DiscreteActorCriticNet):
     def __init__(self, state_dim: int, action_num: int) -> None:
         super(DiscreteVActorCriticNet, self).__init__(state_dim=state_dim, action_dim=1)
         self._action_num = action_num

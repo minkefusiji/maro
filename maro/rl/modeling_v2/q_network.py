@@ -24,7 +24,7 @@ class QNetwork(PolicyNetwork):
         pass
 
 
-class DiscreteQNetwork(QNetwork, DiscretePolicyNetworkInterface):
+class DiscreteQNetwork(DiscretePolicyNetworkInterface, QNetwork):
     def __init__(self, state_dim: int, action_num: int) -> None:
         super(DiscreteQNetwork, self).__init__(state_dim=state_dim, action_dim=1)
         self._action_num = action_num

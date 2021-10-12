@@ -13,10 +13,10 @@ from maro.rl.modeling_v2.ac_network import DiscreteVActorCriticNet
 from maro.rl.utils import MsgKey, MsgTag, average_grads, discount_cumsum
 from .buffer import Buffer
 from .policy_base import RLPolicy
-from .policy_interfaces import DiscreteInterface, PolicyGradientInterface, VNetWorkInterface
+from .policy_interfaces import DiscreteInterface, PolicyGradientInterface, VNetworkInterface
 
 
-class DiscreteVActorCritic(RLPolicy, DiscreteInterface, PolicyGradientInterface, VNetWorkInterface):
+class DiscreteVActorCritic(DiscreteInterface, PolicyGradientInterface, VNetworkInterface, RLPolicy):
     def __init__(
         self,
         name: str,
