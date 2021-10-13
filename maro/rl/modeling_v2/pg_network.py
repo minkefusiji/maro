@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABCMeta
 from typing import Tuple
 
 import torch
@@ -7,12 +7,7 @@ from torch.distributions import Categorical
 from .base_model import DiscretePolicyNetworkInterface, PolicyNetwork
 
 
-class PolicyGradientNetwork(PolicyNetwork, ABC):
-    def __init__(self, state_dim: int, action_dim: int) -> None:
-        super(PolicyGradientNetwork, self).__init__(state_dim, action_dim)
-
-
-class DiscretePolicyGradientNetwork(DiscretePolicyNetworkInterface, ABC, PolicyGradientNetwork):
+class DiscretePolicyGradientNetwork(DiscretePolicyNetworkInterface, PolicyNetwork, metaclass=ABCMeta):
     def __init__(self, state_dim: int, action_num: int) -> None:
         super(DiscretePolicyGradientNetwork, self).__init__(state_dim, 1)
         self._action_num = action_num

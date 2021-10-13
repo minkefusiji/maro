@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Tuple
 
 import numpy as np
@@ -44,11 +44,3 @@ class VNetworkInterface:
         [batch_size, state_dim] => [batch_size, 1]
         """
         pass
-
-
-class ValueBasedInterface(DiscreteQNetworkInterface, ABC):  # TODO: Might not be necessary for now.
-    pass
-
-
-class PolicyGradientInterface(ABC):  # TODO: Might not be necessary for now.
-    pass

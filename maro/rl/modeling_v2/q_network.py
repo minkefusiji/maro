@@ -34,6 +34,7 @@ class DiscreteQNetwork(DiscretePolicyNetworkInterface, QNetwork):
         [batch_size, state_dim] + [batch_size, action_dim] => [batch_size, 1]
         """
         q_matrix = self.q_values_for_all_actions(states)  # [batch_size, action_num]
+        actions = actions.unsqueeze(dim=1)
         return q_matrix.gather(dim=1, index=actions).reshape(-1)
 
     @abstractmethod

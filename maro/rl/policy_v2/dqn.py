@@ -13,7 +13,7 @@ from maro.rl.modeling_v2.q_network import DiscreteQNetwork
 from maro.rl.utils import MsgKey, MsgTag, average_grads
 from maro.utils import clone
 from .policy_base import RLPolicy
-from .policy_interfaces import DiscreteInterface, ValueBasedInterface
+from .policy_interfaces import DiscreteInterface, DiscreteQNetworkInterface
 from .replay import ReplayMemory
 
 
@@ -119,7 +119,7 @@ class PrioritizedExperienceReplay:
             return self._get(right, sampled_val - self._sum_tree[left])
 
 
-class DQN(DiscreteInterface, ValueBasedInterface, RLPolicy):
+class DQN(DiscreteInterface, DiscreteQNetworkInterface, RLPolicy):
     """TODO
     """
 

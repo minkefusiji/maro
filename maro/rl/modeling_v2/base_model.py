@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Tuple
 
 import torch
@@ -61,6 +61,18 @@ class AbsCoreModel(torch.nn.Module):
         """
         pass
 
+    def soft_update(self, other_model: torch.nn.Module, tau: float) -> None:
+        """Soft-update model parameters using another model.
+
+        Update formulae: param = (1 - tau) * param + tau * other_param.
+
+        Args:
+            other_model: The model to update the current model with.
+            tau (float): Soft-update coefficient.
+        """
+        for params, other_params in zip(self.parameters(), other_model.parameters()):
+            params.data = (1 - tau) * params.data + tau * other_params.data
+
 
 class SimpleCoreModel(AbsCoreModel):
     def __init__(self, input_dim: int, output_dim: int) -> None:
@@ -81,7 +93,7 @@ class SimpleCoreModel(AbsCoreModel):
         return self._output_dim
 
 
-class PolicyNetwork(AbsCoreModel, ABC):
+class PolicyNetwork(AbsCoreModel):
     def __init__(self, state_dim: int, action_dim: int) -> None:
         super(PolicyNetwork, self).__init__()
         self._state_dim = state_dim
@@ -156,6 +168,5 @@ class DiscretePolicyNetworkInterface:
         return action, logps
 
     @abstractmethod
-    @property
     def action_num(self) -> int:
         pass

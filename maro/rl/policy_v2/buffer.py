@@ -77,7 +77,7 @@ class Buffer:
         self._size = size
 
     def put(self, state: np.ndarray, action: dict, reward: float, terminal: bool = False) -> None:
-        assert state.shape == (1, self._state_dim)
+        state = state.reshape(1, -1)
         self._pool.append(
             BufferElement(
                 state,

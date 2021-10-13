@@ -12,10 +12,10 @@ from maro.rl.modeling_v2.pg_network import DiscretePolicyGradientNetwork
 from maro.rl.utils import MsgKey, MsgTag, average_grads, discount_cumsum
 from .buffer import Buffer
 from .policy_base import RLPolicy
-from .policy_interfaces import DiscreteInterface, PolicyGradientInterface
+from .policy_interfaces import DiscreteInterface
 
 
-class DiscretePolicyGradient(DiscreteInterface, PolicyGradientInterface, RLPolicy):
+class DiscretePolicyGradient(DiscreteInterface, RLPolicy):
     def __init__(
         self,
         name: str,
@@ -61,7 +61,7 @@ class DiscretePolicyGradient(DiscreteInterface, PolicyGradientInterface, RLPolic
         raise NotImplementedError  # TODO
 
     def action_num(self) -> int:
-        return self._policy_net.action_num
+        return self._policy_net.action_num()
 
     def record(
         self,

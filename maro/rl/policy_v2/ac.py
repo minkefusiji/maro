@@ -13,10 +13,10 @@ from maro.rl.modeling_v2.ac_network import DiscreteVActorCriticNet
 from maro.rl.utils import MsgKey, MsgTag, average_grads, discount_cumsum
 from .buffer import Buffer
 from .policy_base import RLPolicy
-from .policy_interfaces import DiscreteInterface, PolicyGradientInterface, VNetworkInterface
+from .policy_interfaces import DiscreteInterface, VNetworkInterface
 
 
-class DiscreteVActorCritic(DiscreteInterface, PolicyGradientInterface, VNetworkInterface, RLPolicy):
+class DiscreteVActorCritic(DiscreteInterface, VNetworkInterface, RLPolicy):
     def __init__(
         self,
         name: str,
@@ -41,7 +41,7 @@ class DiscreteVActorCritic(DiscreteInterface, PolicyGradientInterface, VNetworkI
         self._ac_net = ac_net.to(self._device)
         self._reward_discount = reward_discount
         self._grad_iters = grad_iters
-        self._critic_loss_func = critic_loss_cls if critic_loss_cls is not None else torch.nn.MSELoss
+        self._critic_loss_func = critic_loss_cls() if critic_loss_cls is not None else torch.nn.MSELoss()
         self._min_logp = min_logp
         self._critic_loss_coef = critic_loss_coef
         self._entropy_coef = entropy_coef
@@ -52,13 +52,17 @@ class DiscreteVActorCritic(DiscreteInterface, PolicyGradientInterface, VNetworkI
 
         self._buffer = defaultdict(lambda: Buffer(state_dim=self._ac_net.state_dim, size=self._max_trajectory_len))
 
-    def __call__(self, states: np.ndarray) -> np.ndarray:
+    def __call__(self, states: np.ndarray) -> List[dict]:
         """Return a list of action information dict given a batch of states.
 
         An action information dict contains the action itself, the corresponding log-P value and the corresponding
         state value.
         """
-        return self.get_actions_with_logps_and_values(states)[0]
+        actions, logps, values = self.get_actions_with_logps_and_values(states)
+        return [
+            {"action": action, "logp": logp, "value": value} for action, logp, value in zip(actions, logps, values)
+        ]
+        # return self.get_actions_with_logps_and_values(states)[0]
 
     def get_actions_with_logps_and_values(
         self, states: np.ndarray
@@ -135,7 +139,7 @@ class DiscreteVActorCritic(DiscreteInterface, PolicyGradientInterface, VNetworkI
         """
         self._ac_net.train()
         states = torch.from_numpy(batch["states"]).to(self._device)
-        actions = torch.from_numpy(batch["actions"]).to(self._device)
+        actions = torch.from_numpy(batch["actions"]).to(self._device).long()
         logp_old = torch.from_numpy(batch["logps"]).to(self._device)
         returns = torch.from_numpy(batch["returns"]).to(self._device)
         advantages = torch.from_numpy(batch["advantages"]).to(self._device)

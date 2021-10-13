@@ -1,15 +1,10 @@
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from typing import Tuple
 
 import torch
 from torch.distributions import Categorical
 
 from .base_model import DiscretePolicyNetworkInterface, PolicyNetwork
-
-
-class ActorCriticCoreModel(PolicyNetwork, ABC):
-    def __init__(self, state_dim: int, action_dim: int) -> None:
-        super(ActorCriticCoreModel, self).__init__(state_dim, action_dim)
 
 
 class QCriticInterface:
@@ -30,7 +25,7 @@ class VCriticInterface:
         pass
 
 
-class DiscreteActorCriticNet(DiscretePolicyNetworkInterface, ABC, ActorCriticCoreModel):
+class DiscreteActorCriticNet(DiscretePolicyNetworkInterface, PolicyNetwork, metaclass=ABCMeta):
     def __init__(self, state_dim: int, action_num: int) -> None:
         super(DiscreteActorCriticNet, self).__init__(state_dim=state_dim, action_dim=1)
         self._action_num = action_num
@@ -56,6 +51,7 @@ class DiscreteQActorCriticNet(DiscreteActorCriticNet, QCriticInterface):
         [batch_size, state_dim] + [batch_size, 1] => [batch_size, 1]
         """
         q_matrix = self.q_critic_for_all_actions(states)  # [batch_size, action_num]
+        actions = actions.unsqueeze(dim=1)
         return q_matrix.gather(dim=1, index=actions).reshape(-1)
 
     @abstractmethod
@@ -68,8 +64,7 @@ class DiscreteQActorCriticNet(DiscreteActorCriticNet, QCriticInterface):
 
 class DiscreteVActorCriticNet(VCriticInterface, DiscreteActorCriticNet):
     def __init__(self, state_dim: int, action_num: int) -> None:
-        super(DiscreteVActorCriticNet, self).__init__(state_dim=state_dim, action_dim=1)
-        self._action_num = action_num
+        super(DiscreteVActorCriticNet, self).__init__(state_dim=state_dim, action_num=action_num)
 
     def get_actions_and_logps_exploration(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         action_probs = Categorical(self.get_probs(states))
