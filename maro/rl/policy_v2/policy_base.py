@@ -24,6 +24,15 @@ class AbsPolicy(object):
 
     @abstractmethod
     def __call__(self, states: object) -> object:
+        """Get actions and other auxiliary information based on states.
+
+        Args:
+            states: environment states.
+
+        Returns:
+            Actions and other auxiliary information based on states.
+            The format of the returns is defined by the policy.
+        """
         pass
 
 
@@ -40,7 +49,8 @@ class DummyPolicy(AbsPolicy):
 
 
 class RuleBasedPolicy(AbsPolicy):
-    """Rule-based policy that generates actions according to a fixed rule. It is immutable.
+    """Rule-based policy that generates actions according to a fixed rule.
+    The rule is immutable, which means a rule-based policy is not trainable.
     """
     def __init__(self, name: str) -> None:
         super(RuleBasedPolicy, self).__init__(name)
@@ -50,6 +60,8 @@ class RuleBasedPolicy(AbsPolicy):
 
     @abstractmethod
     def _rule(self, state: object) -> object:
+        """The rule that should be implemented by inheritors.
+        """
         pass
 
 
@@ -60,6 +72,7 @@ class RLPolicy(AbsPolicy):
 
     Args:
         name (str): Name of the policy.
+        device (str): Device that uses to train the Torch model.
     """
     def __init__(self, name: str, device: str) -> None:
         super(RLPolicy, self).__init__(name)
@@ -75,13 +88,17 @@ class RLPolicy(AbsPolicy):
         return self._exploration_params
 
     def exploration(self) -> None:
+        """Switch the policy to the exploration mode.
+        """
         self._in_exploration_mode = True
 
     def exploitation(self) -> None:
+        """Switch the policy to the exploitation mode.
+        """
         self._in_exploration_mode = False
 
     @abstractmethod
-    def __call__(self, states: np.ndarray) -> np.ndarray:
+    def __call__(self, states: np.ndarray) -> object:
         pass
 
     @abstractmethod

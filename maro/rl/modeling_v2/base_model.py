@@ -74,25 +74,6 @@ class AbsCoreModel(torch.nn.Module):
             params.data = (1 - tau) * params.data + tau * other_params.data
 
 
-class SimpleCoreModel(AbsCoreModel):
-    def __init__(self, input_dim: int, output_dim: int) -> None:
-        super(SimpleCoreModel, self).__init__()
-        self._input_dim = input_dim
-        self._output_dim = output_dim
-
-    @abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        pass
-
-    @property
-    def input_dim(self) -> int:
-        return self._input_dim
-
-    @property
-    def output_dim(self) -> int:
-        return self._output_dim
-
-
 class PolicyNetwork(AbsCoreModel):
     def __init__(self, state_dim: int, action_dim: int) -> None:
         super(PolicyNetwork, self).__init__()
@@ -109,59 +90,61 @@ class PolicyNetwork(AbsCoreModel):
 
     @abstractmethod
     def get_actions_exploration(self, states: torch.Tensor) -> torch.Tensor:
+        """Get actions under exploration mode.
+        """
         pass
 
     @abstractmethod
     def get_actions_exploitation(self, states: torch.Tensor) -> torch.Tensor:
+        """Get actions under exploitation mode.
+        """
         pass
 
-#
-#
-# class MultiQActorCritic(ActorCriticCoreModel):
-#     def __init__(
-#         self, state_dim: int, global_state_dim: int, action_dim: int, actor_num: int
-#     ) -> None:
-#         super(MultiQActorCritic, self).__init__(state_dim, action_dim)
-#         self._actor_num = actor_num
-#         self._global_state_dim = global_state_dim
-#
-#     @abstractmethod
-#     def multi_q_critic(self, global_states: torch.Tensor, actions: List[torch.Tensor]) -> torch.Tensor:
-#         pass
-#
-#     @property
-#     def actor_num(self) -> int:
-#         return self._actor_num
-#
-#     @property
-#     def global_state_dim(self) -> int:
-#         return self._global_state_dim
 
-
-class DiscretePolicyNetworkInterface:
+class DiscretePolicyNetworkMixin:
     @abstractmethod
     def get_probs(self, states: torch.Tensor) -> torch.Tensor:
-        """
-        [batch_size, state_dim] => [batch_size, action_num]
+        """Get probabilities of all possible actions.
+
+        Args:
+            states: [batch_size, state_dim]
+
+        Returns:
+            probability matrix: [batch_size, action_num]
         """
         pass
 
     def get_logps(self, states: torch.Tensor) -> torch.Tensor:
-        """
-        [batch_size, state_dim] => [batch_size, action_num]
+        """Get log-probabilities of all possible actions.
+
+        Args:
+            states: [batch_size, state_dim]
+
+        Returns:
+            Log-probability matrix: [batch_size, action_num]
         """
         return torch.log(self.get_probs(states))
 
     @abstractmethod
     def get_actions_and_logps_exploration(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        [batch_size, state_dim] => [batch_size, 1] + [batch_size, 1]
+        """Get actions and corresponding log-probabilities under exploration mode.
+
+        Args:
+            states: [batch_size, state_dim]
+
+        Returns:
+            Actions and log-P values, both with shape [batch_size, 1].
         """
         pass
 
     def get_actions_and_logps_exploitation(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        [batch_size, state_dim] => [batch_size, 1] + [batch_size, 1]
+        """Get actions and corresponding log-probabilities under exploitation mode.
+
+        Args:
+            states: [batch_size, state_dim]
+
+        Returns:
+            Actions and log-P values, both with shape [batch_size, 1].
         """
         action_prob = self.get_logps(states)  # (batch_size, num_actions)
         logps, action = action_prob.max(dim=1)

@@ -8,10 +8,10 @@ from typing import Any, Tuple
 import torch
 
 from maro.rl.modeling import FullyConnected
-from maro.rl.modeling_v2.ac_network import DiscreteVActorCriticNet
-from maro.rl.modeling_v2.q_network import DiscreteQNetwork
-from maro.rl.policy_v2.ac import DiscreteVActorCritic
-from maro.rl.policy_v2.dqn import DQN
+from maro.rl.modeling_v2 import DiscreteVActorCriticNet
+from maro.rl.modeling_v2 import DiscreteQNetwork
+from maro.rl.policy_v2 import DiscreteVActorCritic
+from maro.rl.policy_v2 import DQN
 
 cim_path = os.path.dirname(os.path.realpath(__file__))
 if cim_path not in sys.path:
@@ -79,11 +79,8 @@ class MyACNet(DiscreteVActorCriticNet):
         self.actor_optim = actor_optim_conf[0](self.actor.parameters(), **actor_optim_conf[1])
         self.critic_optim = critic_optim_conf[0](self.critic.parameters(), **critic_optim_conf[1])
 
-    def get_values(self, states: torch.Tensor) -> torch.Tensor:
-        return self.critic(states)
-
     def v_critic(self, states: torch.Tensor) -> torch.Tensor:
-        return self.get_values(states)
+        return self.critic(states)
 
     def get_probs(self, states: torch.Tensor) -> torch.Tensor:
         return self.actor(states)

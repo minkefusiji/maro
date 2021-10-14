@@ -11,7 +11,7 @@ from typing import Callable, Dict, List
 
 from maro.communication import Proxy, SessionMessage, SessionType
 from maro.rl.policy import WorkerAllocator
-from maro.rl.policy_v2.policy_base import RLPolicy
+from maro.rl.policy_v2 import RLPolicy
 from maro.rl.utils import MsgKey, MsgTag
 from maro.utils import Logger
 

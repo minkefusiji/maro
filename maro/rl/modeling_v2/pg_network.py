@@ -4,10 +4,10 @@ from typing import Tuple
 import torch
 from torch.distributions import Categorical
 
-from .base_model import DiscretePolicyNetworkInterface, PolicyNetwork
+from .base_model import DiscretePolicyNetworkMixin, PolicyNetwork
 
 
-class DiscretePolicyGradientNetwork(DiscretePolicyNetworkInterface, PolicyNetwork, metaclass=ABCMeta):
+class DiscretePolicyGradientNetwork(DiscretePolicyNetworkMixin, PolicyNetwork, metaclass=ABCMeta):
     def __init__(self, state_dim: int, action_num: int) -> None:
         super(DiscretePolicyGradientNetwork, self).__init__(state_dim, 1)
         self._action_num = action_num

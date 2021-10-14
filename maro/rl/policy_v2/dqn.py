@@ -9,11 +9,11 @@ import torch
 
 from maro.communication import SessionMessage
 from maro.rl.exploration import epsilon_greedy
-from maro.rl.modeling_v2.q_network import DiscreteQNetwork
+from maro.rl.modeling_v2 import DiscreteQNetwork
 from maro.rl.utils import MsgKey, MsgTag, average_grads
 from maro.utils import clone
 from .policy_base import RLPolicy
-from .policy_interfaces import DiscreteInterface, DiscreteQNetworkInterface
+from .policy_interfaces import DiscreteQNetworkMixin
 from .replay import ReplayMemory
 
 
@@ -119,8 +119,47 @@ class PrioritizedExperienceReplay:
             return self._get(right, sampled_val - self._sum_tree[left])
 
 
-class DQN(DiscreteInterface, DiscreteQNetworkInterface, RLPolicy):
-    """TODO
+class DQN(DiscreteQNetworkMixin, RLPolicy):
+    """The Deep-Q-Networks algorithm.
+
+    See https://web.stanford.edu/class/psych209/Readings/MnihEtAlHassibis15NatureControlDeepRL.pdf for details.
+
+    Args:
+        name (str): Unique identifier for the policy.
+        q_net (DiscreteQNet): Q-value model.
+        reward_discount (float): Reward decay as defined in standard RL terminology.
+        num_epochs (int): Number of training epochs per call to ``learn``. Defaults to 1.
+        update_target_every (int): Number of gradient steps between target model updates.
+        soft_update_coef (float): Soft update coefficient, e.g.,
+            target_model = (soft_update_coeff) * eval_model + (1-soft_update_coeff) * target_model.
+            Defaults to 1.0.
+        double (bool): If True, the next Q values will be computed according to the double DQN algorithm,
+            i.e., q_next = Q_target(s, argmax(Q_eval(s, a))). Otherwise, q_next = max(Q_target(s, a)).
+            See https://arxiv.org/pdf/1509.06461.pdf for details. Defaults to False.
+        exploration_strategy (Tuple[Callable, dict]): A 2-tuple that consists of a) a function that takes a state
+            (single or batch), an action (single or batch), the total number of possible actions and a set of keyword
+            arguments, and returns an exploratory action (single or batch depending on the input), and b) a dictionary
+            of keyword arguments for the function in a) (this will be assigned to the ``_exploration_params`` member
+            variable). Defaults to (``epsilon_greedy``, {"epsilon": 0.1}).
+        exploration_scheduling_options (List[tuple]): A list of 3-tuples specifying the exploration schedulers to be
+            registered to the exploration parameters. Each tuple consists of an exploration parameter name, an
+            exploration scheduler class (subclass of ``AbsExplorationScheduler``) and keyword arguments for that class.
+            The exploration parameter name must be a key in the keyword arguments (second element) of
+            ``exploration_strategy``. Defaults to an empty list.
+        replay_memory_capacity (int): Capacity of the replay memory. Defaults to 1000000.
+        random_overwrite (bool): This specifies overwrite behavior when the replay memory capacity is reached. If True,
+            overwrite positions will be selected randomly. Otherwise, overwrites will occur sequentially with
+            wrap-around. Defaults to False.
+        warmup (int): When the total number of experiences in the replay memory is below this threshold,
+            ``choose_action`` will return uniformly random actions for warm-up purposes. Defaults to 50000.
+        rollout_batch_size (int): Size of the experience batch to use as roll-out information by calling
+            ``get_rollout_info``. Defaults to 1000.
+        train_batch_size (int): Batch size for training the Q-net. Defaults to 32.
+        prioritized_replay_kwargs (dict): Keyword arguments for prioritized experience replay. See
+            ``PrioritizedExperienceReplay`` for details. Defaults to None, in which case experiences will be sampled
+            from the replay memory uniformly randomly.
+        device (str): Identifier for the torch device. The ``q_net`` will be moved to the specified device. If it is
+            None, the device will be set to "cpu" if cuda is unavailable and "cuda" otherwise. Defaults to None.
     """
 
     def __init__(

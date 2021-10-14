@@ -8,14 +8,33 @@ import numpy as np
 import torch
 
 from maro.communication import SessionMessage
-from maro.rl.modeling_v2.pg_network import DiscretePolicyGradientNetwork
+from maro.rl.modeling_v2 import DiscretePolicyGradientNetwork
 from maro.rl.utils import MsgKey, MsgTag, average_grads, discount_cumsum
 from .buffer import Buffer
 from .policy_base import RLPolicy
-from .policy_interfaces import DiscreteInterface
+from .policy_interfaces import DiscreteActionMixin
 
 
-class DiscretePolicyGradient(DiscreteInterface, RLPolicy):
+class DiscretePolicyGradient(DiscreteActionMixin, RLPolicy):
+    """The vanilla Policy Gradient (VPG) algorithm, a.k.a., REINFORCE.
+
+    Reference: https://github.com/openai/spinningup/tree/master/spinup/algos/pytorch.
+
+    Args:
+        name (str): Unique identifier for the policy.
+        policy_net (DiscretePolicyNet): Multi-task model that computes action distributions and state values.
+            It may or may not have a shared bottom stack.
+        reward_discount (float): Reward decay as defined in standard RL terminology.
+        grad_iters (int): Number of gradient steps for each batch or set of batches. Defaults to 1.
+        max_trajectory_len (int): Maximum trajectory length that can be held by the buffer (for each agent that uses
+            this policy). Defaults to 10000.
+        get_loss_on_rollout (bool): If True, ``get_rollout_info`` will return the loss information (including gradients)
+            for the trajectories stored in the buffers. The loss information, along with that from other roll-out
+            instances, can be passed directly to ``update``. Otherwise, it will simply process the trajectories into a
+            single data batch that can be passed directly to ``learn``. Defaults to False.
+        device (str): Identifier for the torch device. The ``policy net`` will be moved to the specified device. If it
+            is None, the device will be set to "cpu" if cuda is unavailable and "cuda" otherwise. Defaults to None.
+    """
     def __init__(
         self,
         name: str,
@@ -39,14 +58,19 @@ class DiscretePolicyGradient(DiscreteInterface, RLPolicy):
 
         self._buffer = defaultdict(lambda: Buffer(state_dim=self._policy_net.state_dim, size=self._max_trajectory_len))
 
-    def __call__(self, states: np.ndarray) -> np.ndarray:
+    def __call__(self, states: np.ndarray) -> List[dict]:
         """Return a list of action information dict given a batch of states.
 
         An action information dict contains the action itself and the corresponding log-P value.
         """
-        return self.get_actions_with_logps(states)[0]
+        actions, logps = self.get_actions_with_logps(states)
+        return [
+            {"action": action, "logp": logp} for action, logp in zip(actions, logps)
+        ]
 
     def get_actions_with_logps(self, states: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Return actions an log-P value based on states.
+        """
         self._policy_net.eval()
         with torch.no_grad():
             states: torch.Tensor = torch.from_numpy(states).to(self._device)
@@ -61,7 +85,7 @@ class DiscretePolicyGradient(DiscreteInterface, RLPolicy):
         raise NotImplementedError  # TODO
 
     def action_num(self) -> int:
-        return self._policy_net.action_num()
+        return self._policy_net.action_num
 
     def record(
         self,

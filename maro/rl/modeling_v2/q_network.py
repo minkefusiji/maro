@@ -3,7 +3,7 @@ from typing import Tuple
 
 import torch
 
-from .base_model import DiscretePolicyNetworkInterface, PolicyNetwork
+from .base_model import DiscretePolicyNetworkMixin, PolicyNetwork
 
 
 class QNetwork(PolicyNetwork):
@@ -24,7 +24,7 @@ class QNetwork(PolicyNetwork):
         pass
 
 
-class DiscreteQNetwork(DiscretePolicyNetworkInterface, QNetwork):
+class DiscreteQNetwork(DiscretePolicyNetworkMixin, QNetwork):
     def __init__(self, state_dim: int, action_num: int) -> None:
         super(DiscreteQNetwork, self).__init__(state_dim=state_dim, action_dim=1)
         self._action_num = action_num
