@@ -329,6 +329,10 @@ class AbsEnvSampler(ABC):
     def event(self) -> object:
         return self._event
 
+    @property
+    def agent_wrapper(self) -> AbsAgentWrapper:
+        return self._agent_wrapper
+
     @abstractmethod
     def get_state(self, tick: int = None) -> dict:
         """Compute the state for a given tick.
