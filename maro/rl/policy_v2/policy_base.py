@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import numpy as np
 import torch
@@ -98,7 +98,7 @@ class RLPolicy(AbsPolicy):
         self._in_exploration_mode = False
 
     @abstractmethod
-    def __call__(self, states: np.ndarray) -> object:
+    def __call__(self, states: np.ndarray) -> Iterable:
         pass
 
     @abstractmethod

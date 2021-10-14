@@ -1,9 +1,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+import collections
 import os
 import time
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections import defaultdict
 from multiprocessing import Pipe, Process
 from os import getcwd, getpid
@@ -20,13 +20,14 @@ from maro.utils import Logger
 DEFAULT_POLICY_GROUP = "policy_group_default"
 
 
-class AbsPolicyManager(ABC):
+class AbsPolicyManager(object):
     """Facility that controls policy update and serves the latest policy states."""
-    def __init__(self):
-        super().__init__()
+    def __init__(self) -> None:
+        super(AbsPolicyManager, self).__init__()
+        self._version = 0
 
     @abstractmethod
-    def update(self, rollout_info: Dict[str, list]):
+    def update(self, rollout_info: Dict[str, dict]) -> None:
         """Update policies using roll-out information.
 
         The roll-out information is grouped by policy name and may be either a training batch or a list of loss
@@ -35,16 +36,17 @@ class AbsPolicyManager(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_state(self):
+    def get_state(self) -> dict:
         """Get the latest policy states."""
         raise NotImplementedError
 
-    @abstractmethod
-    def get_version(self):
+    def get_version(self) -> int:
         """Get the collective policy version."""
-        raise NotImplementedError
+        return self._version
 
-    def server(self, group: str, num_actors: int, max_lag: int = 0, proxy_kwargs: dict = {}, log_dir: str = getcwd()):
+    def server(
+        self, group: str, num_actors: int, max_lag: int = 0, proxy_kwargs: dict = None, log_dir: str = getcwd()
+    ) -> None:
         """Run a server process.
 
         The process serves the latest policy states to a set of remote actors and receives simulated experiences from
@@ -60,6 +62,9 @@ class AbsPolicyManager(ABC):
                 for details. Defaults to an empty dictionary.
             log_dir (str): Directory to store logs in. Defaults to the current working directory.
         """
+        if proxy_kwargs is None:
+            proxy_kwargs = {}
+
         peers = {"actor": num_actors}
         name = "POLICY_SERVER"
         proxy = Proxy(group, "policy_server", peers, component_name=name, **proxy_kwargs)
@@ -91,6 +96,10 @@ class AbsPolicyManager(ABC):
                     proxy.close()
                     return
 
+    @abstractmethod
+    def exit(self):
+        pass
+
 
 class SimplePolicyManager(AbsPolicyManager):
     """Policy manager that contains all policy instances.
@@ -100,9 +109,6 @@ class SimplePolicyManager(AbsPolicyManager):
             function that takes policy name as the only parameter and return an ``RLPolicy`` instance.
         load_dir (str): If provided, policies whose IDs are in the dictionary keys will load the states
             from the corresponding path. Defaults to None.
-        checkpoint_every (int): The policies will be checkpointed (i.e., persisted to disk) every this number of seconds
-            only if there are updates since the last checkpoint. This must be a positive integer or -1, with -1 meaning
-            no checkpointing. Defaults to -1.
         checkpoint_dir (str): The directory under which to checkpoint the policy states.
         worker_allocator (WorkerAllocator): Strategy to select gradient workers for policies for send gradient tasks to.
             If not None, the policies will be trained in data-parallel mode. Defaults to None.
@@ -120,12 +126,16 @@ class SimplePolicyManager(AbsPolicyManager):
         checkpoint_dir: str = None,
         worker_allocator: WorkerAllocator = None,
         group: str = DEFAULT_POLICY_GROUP,
-        proxy_kwargs: dict = {},
+        proxy_kwargs: dict = None,
         log_dir: str = getcwd()
-    ):
-        super().__init__()
+    ) -> None:
+        super(SimplePolicyManager, self).__init__()
+
+        if proxy_kwargs is None:
+            proxy_kwargs = {}
+
         self._logger = Logger("POLICY_MANAGER", dump_folder=log_dir)
-        self._policy_dict = {name: func(name) for name, func in create_policy_func_dict.items()}
+        self._policy_dict: Dict[str, RLPolicy] = {name: func(name) for name, func in create_policy_func_dict.items()}
         if load_dir:
             for id_, policy in self._policy_dict.items():
                 path = os.path.join(load_dir, id_)
@@ -133,13 +143,11 @@ class SimplePolicyManager(AbsPolicyManager):
                     policy.load(path)
                     self._logger.info(f"Loaded policy {id_} from {path}")
 
-        self._version = 0
-
         # auto-checkpointing
         if checkpoint_dir:
-            self.checkpoint_path = {id_: os.path.join(checkpoint_dir, id_) for id_ in self._policy_dict}
+            self._checkpoint_path = {id_: os.path.join(checkpoint_dir, id_) for id_ in self._policy_dict}
         else:
-            self.checkpoint_path = None
+            self._checkpoint_path = None
 
         # data parallelism
         self._worker_allocator = worker_allocator
@@ -151,12 +159,13 @@ class SimplePolicyManager(AbsPolicyManager):
                 component_name="POLICY_MANAGER", **proxy_kwargs
             )
 
-            for name in create_policy_func_dict:
-                self._policy_dict[name].data_parallel(
+            for name, policy in self._policy_dict.items():
+                policy.data_parallel(
                     group, "policy_host", {"grad_worker": self._num_grad_workers},
-                    component_name=f"POLICY_HOST.{name}", **proxy_kwargs)
+                    component_name=f"POLICY_HOST.{name}", **proxy_kwargs
+                )
 
-    def update(self, rollout_info: Dict[str, list]):
+    def update(self, rollout_info: Dict[str, dict]) -> None:
         """Update policies using roll-out information.
 
         The roll-out information is grouped by policy name and may be either a training batch or a list of loss
@@ -169,24 +178,20 @@ class SimplePolicyManager(AbsPolicyManager):
             else:
                 self._policy_dict[policy_id].learn(info)
 
-            if self.checkpoint_path:
-                self._policy_dict[policy_id].save(self.checkpoint_path[policy_id])
-                self._logger.info(f"Saved policy {policy_id} to {self.checkpoint_path[policy_id]}")
+            if self._checkpoint_path:
+                self._policy_dict[policy_id].save(self._checkpoint_path[policy_id])
+                self._logger.info(f"Saved policy {policy_id} to {self._checkpoint_path[policy_id]}")
 
             self._version += 1
 
         self._logger.info(f"Updated policies {list(rollout_info.keys())}")
         self._logger.info(f"policy update time: {time.time() - t0}")
 
-    def get_state(self):
+    def get_state(self) -> dict:
         """Get the latest policy states."""
         return {name: policy.get_state() for name, policy in self._policy_dict.items()}
 
-    def get_version(self):
-        """Get the collective policy version."""
-        return self._version
-
-    def exit(self):
+    def exit(self) -> None:
         pass
 
 
@@ -216,11 +221,14 @@ class MultiProcessPolicyManager(AbsPolicyManager):
         checkpoint_dir: str = None,
         worker_allocator: WorkerAllocator = None,
         group: str = DEFAULT_POLICY_GROUP,
-        proxy_kwargs: dict = {},
+        proxy_kwargs: dict = None,
         log_dir: str = getcwd()
-    ):
-        super().__init__()
+    ) -> None:
+        super(MultiProcessPolicyManager, self).__init__()
         self._logger = Logger("POLICY_MANAGER", dump_folder=log_dir)
+
+        if proxy_kwargs is None:
+            proxy_kwargs = {}
 
         # data parallelism
         self._worker_allocator = worker_allocator is not None
@@ -290,9 +298,7 @@ class MultiProcessPolicyManager(AbsPolicyManager):
                 self._state_cache[policy_id] = msg["policy_state"]
                 self._logger.info(f"Initial state for policy {policy_id} cached")
 
-        self._version = 0
-
-    def update(self, rollout_info: Dict[str, list]):
+    def update(self, rollout_info: Dict[str, dict]):
         """Update policies using roll-out information.
 
         The roll-out information is grouped by policy name and may be either a training batch or a list of loss
@@ -321,10 +327,6 @@ class MultiProcessPolicyManager(AbsPolicyManager):
     def get_state(self):
         """Get the latest policy states."""
         return self._state_cache
-
-    def get_version(self):
-        """Get the collective policy version."""
-        return self._version
 
     def exit(self):
         """Tell the policy host processes to exit."""
@@ -357,10 +359,14 @@ class DistributedPolicyManager(AbsPolicyManager):
         num_hosts: int,
         group: str = DEFAULT_POLICY_GROUP,
         worker_allocator: WorkerAllocator = None,
-        proxy_kwargs: dict = {},
+        proxy_kwargs: dict = None,
         log_dir: str = getcwd()
-    ):
-        super().__init__()
+    ) -> None:
+        super(DistributedPolicyManager, self).__init__()
+
+        if proxy_kwargs is None:
+            proxy_kwargs = {}
+
         self._worker_allocator = worker_allocator
         peers = {"policy_host": num_hosts}
         if self._worker_allocator:
@@ -402,9 +408,7 @@ class DistributedPolicyManager(AbsPolicyManager):
                 if dones == num_hosts:
                     break
 
-        self._version = 0
-
-    def update(self, rollout_info: Dict[str, list]):
+    def update(self, rollout_info: Dict[str, dict]) -> None:
         """Update policies using roll-out information.
 
         The roll-out information is grouped by policy name and may be either a training batch or a list if loss
@@ -433,15 +437,11 @@ class DistributedPolicyManager(AbsPolicyManager):
         self._version += 1
         self._logger.info(f"Updated policies {list(rollout_info.keys())}")
 
-    def get_state(self):
+    def get_state(self) -> dict:
         """Get the latest policy states."""
         return self._state_cache
 
-    def get_version(self):
-        """Get the collective policy version."""
-        return self._version
-
-    def exit(self):
+    def exit(self) -> None:
         """Tell the remote policy hosts to exit."""
         self._proxy.ibroadcast("policy_host", MsgTag.EXIT, SessionType.NOTIFICATION)
         self._proxy.close()

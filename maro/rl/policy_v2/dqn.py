@@ -2,7 +2,7 @@
 # Licensed under the MIT license.
 
 from collections import defaultdict
-from typing import Callable, List, Tuple, Union
+from typing import Callable, Iterable, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -227,7 +227,7 @@ class DQN(DiscreteQNetworkMixin, RLPolicy):
             opt[1](self._exploration_params, opt[0], **opt[2]) for opt in exploration_scheduling_options
         ]
 
-    def __call__(self, states: np.ndarray) -> object:
+    def __call__(self, states: np.ndarray) -> Iterable:
         if self._replay_memory.size < self._warmup:
             return np.random.randint(self._num_actions, size=(states.shape[0] if len(states.shape) > 1 else 1,))
 

@@ -37,7 +37,7 @@ if __name__ == "__main__":
     if mode == "single":
         env_sampler = get_env_sampler()
         if load_policy_dir:
-            env_sampler.agent_wrapper.load(load_policy_dir)
+            env_sampler._agent_wrapper.load(load_policy_dir)
             logger.info(f"Loaded policy states from {load_policy_dir}")
 
         for ep in range(1, num_episodes + 1):
@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
                 collect_time += time.time() - tc0
                 tu0 = time.time()
-                env_sampler.agent_wrapper.improve(checkpoint_dir=checkpoint_dir)
+                env_sampler._agent_wrapper.improve(checkpoint_dir=checkpoint_dir)
                 if checkpoint_dir:
                     logger.info(f"Saved policy states to {checkpoint_dir}")
                 policy_update_time += time.time() - tu0
