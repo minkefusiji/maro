@@ -58,8 +58,7 @@ class DiscreteActorCriticNet(DiscretePolicyNetworkMixin, PolicyNetwork, metaclas
 
 class DiscreteQActorCriticNet(QCriticMixin, DiscreteActorCriticNet):
     def __init__(self, state_dim: int, action_num: int) -> None:
-        super(DiscreteQActorCriticNet, self).__init__(state_dim=state_dim, action_dim=1)
-        self._action_num = action_num
+        super(DiscreteQActorCriticNet, self).__init__(state_dim=state_dim, action_num=action_num)
 
     def q_critic(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
         q_matrix = self.q_critic_for_all_actions(states)  # [batch_size, action_num]
