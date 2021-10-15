@@ -8,7 +8,7 @@ from typing import Any, Tuple
 import torch
 
 from maro.rl.modeling import FullyConnected
-from maro.rl.modeling_v2 import DiscreteVActorCriticNet
+from maro.rl.modeling_v2 import DiscreteQActorCriticNet, DiscreteVActorCriticNet
 from maro.rl.modeling_v2 import DiscreteQNetwork
 from maro.rl.policy_v2 import DiscreteVActorCritic
 from maro.rl.policy_v2 import DQN
@@ -17,7 +17,8 @@ cim_path = os.path.dirname(os.path.realpath(__file__))
 if cim_path not in sys.path:
     sys.path.insert(0, cim_path)
 from config import (
-    ac_conf, actor_net_conf, actor_optim_conf, algorithm, critic_net_conf, critic_optim_conf, dqn_conf, q_net_conf,
+    ac_conf, actor_net_conf, actor_optim_conf, algorithm, q_critic_net_conf, v_critic_net_conf, critic_optim_conf,
+    dqn_conf, q_net_conf,
     q_net_optim_conf
 )
 
@@ -71,15 +72,65 @@ class MyQNet(DiscreteQNetwork):
         self.optim.load_state_dict(state["optim"])
 
 
-class MyACNet(DiscreteVActorCriticNet):
+class MyVACNet(DiscreteVActorCriticNet):
     def __init__(self) -> None:
-        super(MyACNet, self).__init__(state_dim=actor_net_conf["input_dim"], action_num=actor_net_conf["output_dim"])
+        super(MyVACNet, self).__init__(state_dim=actor_net_conf["input_dim"], action_num=actor_net_conf["output_dim"])
         self.actor = FullyConnected(**actor_net_conf)
-        self.critic = FullyConnected(**critic_net_conf)
+        self.critic = FullyConnected(**v_critic_net_conf)
         self.actor_optim = actor_optim_conf[0](self.actor.parameters(), **actor_optim_conf[1])
         self.critic_optim = critic_optim_conf[0](self.critic.parameters(), **critic_optim_conf[1])
 
     def v_critic(self, states: torch.Tensor) -> torch.Tensor:
+        return self.critic(states)
+
+    def get_probs(self, states: torch.Tensor) -> torch.Tensor:
+        return self.actor(states)
+
+    def step(self, loss: torch.tensor) -> None:
+        self.actor_optim.zero_grad()
+        self.critic_optim.zero_grad()
+        loss.backward()
+        self.actor_optim.step()
+        self.critic_optim.step()
+
+    def get_gradients(self, loss: torch.tensor) -> torch.tensor:
+        self.actor_optim.zero_grad()
+        self.critic_optim.zero_grad()
+        loss.backward()
+        return {name: param.grad for name, param in self.named_parameters()}
+
+    def apply_gradients(self, grad: dict) -> None:
+        for name, param in self.named_parameters():
+            param.grad = grad[name]
+
+        self.actor_optim.step()
+        self.critic_optim.step()
+
+    def get_state(self) -> dict:
+        return {
+            "network": self.state_dict(),
+            "actor_optim": self.actor_optim.state_dict(),
+            "critic_optim": self.critic_optim.state_dict()
+        }
+
+    def set_state(self, state: dict) -> None:
+        self.load_state_dict(state["network"])
+        self.actor_optim.load_state_dict(state["actor_optim"])
+        self.critic_optim.load_state_dict(state["critic_optim"])
+
+    def _forward_unimplemented(self, *input: Any) -> None:
+        pass
+
+
+class MyQACNet(DiscreteQActorCriticNet):
+    def __init__(self) -> None:
+        super(MyQACNet, self).__init__(state_dim=actor_net_conf["input_dim"], action_num=actor_net_conf["output_dim"])
+        self.actor = FullyConnected(**actor_net_conf)
+        self.critic = FullyConnected(**q_critic_net_conf)
+        self.actor_optim = actor_optim_conf[0](self.actor.parameters(), **actor_optim_conf[1])
+        self.critic_optim = critic_optim_conf[0](self.critic.parameters(), **critic_optim_conf[1])
+
+    def q_critic_for_all_actions(self, states: torch.Tensor) -> torch.Tensor:
         return self.critic(states)
 
     def get_probs(self, states: torch.Tensor) -> torch.Tensor:
@@ -127,5 +178,5 @@ if algorithm == "dqn":
     }
 else:
     policy_func_dict = {
-        f"ac.{i}": lambda name: DiscreteVActorCritic(name, MyACNet(), **ac_conf) for i in range(4)
+        f"ac.{i}": lambda name: DiscreteVActorCritic(name, MyVACNet(), **ac_conf) for i in range(4)
     }

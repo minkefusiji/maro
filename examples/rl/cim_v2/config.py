@@ -99,10 +99,20 @@ actor_net_conf = {
     "head": True
 }
 
-critic_net_conf = {
+v_critic_net_conf = {
     "input_dim": state_dim,
     "hidden_dims": [256, 128, 64],
     "output_dim": 1,
+    "activation": torch.nn.LeakyReLU,
+    "softmax": False,
+    "batch_norm": True,
+    "head": True
+}
+
+q_critic_net_conf = {
+    "input_dim": state_dim,
+    "hidden_dims": [256, 128, 64],
+    "output_dim": len(action_shaping_conf["action_space"]),
     "activation": torch.nn.LeakyReLU,
     "softmax": False,
     "batch_norm": True,
