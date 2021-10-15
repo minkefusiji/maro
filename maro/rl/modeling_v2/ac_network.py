@@ -49,8 +49,14 @@ class DiscreteActorCriticNet(DiscretePolicyNetworkMixin, PolicyNetwork, metaclas
     def get_actions_exploitation(self, states: torch.Tensor) -> torch.Tensor:
         return self.get_actions_and_logps_greedy(states)[0]
 
+    def get_actions_and_logps_exploration(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        action_probs = Categorical(self.get_probs(states))
+        actions = action_probs.sample()
+        logps = action_probs.log_prob(actions)
+        return actions, logps
 
-class DiscreteQActorCriticNet(DiscreteActorCriticNet, QCriticMixin):
+
+class DiscreteQActorCriticNet(QCriticMixin, DiscreteActorCriticNet):
     def __init__(self, state_dim: int, action_num: int) -> None:
         super(DiscreteQActorCriticNet, self).__init__(state_dim=state_dim, action_dim=1)
         self._action_num = action_num
@@ -75,12 +81,3 @@ class DiscreteQActorCriticNet(DiscreteActorCriticNet, QCriticMixin):
 class DiscreteVActorCriticNet(VCriticMixin, DiscreteActorCriticNet, metaclass=ABCMeta):
     def __init__(self, state_dim: int, action_num: int) -> None:
         super(DiscreteVActorCriticNet, self).__init__(state_dim=state_dim, action_num=action_num)
-
-    def get_actions_and_logps_exploration(self, states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        action_probs = Categorical(self.get_probs(states))
-        actions = action_probs.sample()
-        logps = action_probs.log_prob(actions)
-        return actions, logps
-
-    def get_values(self, states: torch.Tensor) -> torch.Tensor:
-        return self.v_critic(states)

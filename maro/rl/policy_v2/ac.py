@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+from abc import abstractmethod
 from collections import defaultdict
 from typing import Callable, List, Tuple
 
@@ -9,18 +9,18 @@ import torch
 from torch.distributions import Categorical
 
 from maro.communication import SessionMessage
-from maro.rl.modeling_v2 import DiscreteVActorCriticNet
+from maro.rl.modeling_v2 import DiscreteActorCriticNet, DiscreteQActorCriticNet, DiscreteVActorCriticNet
 from maro.rl.utils import MsgKey, MsgTag, average_grads, discount_cumsum
 from .buffer import Buffer
 from .policy_base import RLPolicy
-from .policy_interfaces import DiscreteActionMixin, VNetworkMixin
+from .policy_interfaces import DiscreteActionMixin, QNetworkMixin, VNetworkMixin
 
 
-class DiscreteVActorCritic(DiscreteActionMixin, VNetworkMixin, RLPolicy):
+class DiscreteActorCritic(DiscreteActionMixin, RLPolicy):
     def __init__(
         self,
         name: str,
-        ac_net: DiscreteVActorCriticNet,
+        ac_net: DiscreteActorCriticNet,
         reward_discount: float,
         grad_iters: int = 1,
         critic_loss_cls: Callable = None,
@@ -33,10 +33,7 @@ class DiscreteVActorCritic(DiscreteActionMixin, VNetworkMixin, RLPolicy):
         get_loss_on_rollout: bool = False,
         device: str = None
     ) -> None:
-        super(DiscreteVActorCritic, self).__init__(name=name, device=device)
-
-        if not isinstance(ac_net, DiscreteVActorCriticNet):
-            raise TypeError("model must be an instance of 'DiscreteVActorCriticNet'")
+        super(DiscreteActorCritic, self).__init__(name=name, device=device)
 
         self._ac_net = ac_net.to(self._device)
         self._reward_discount = reward_discount
@@ -62,32 +59,27 @@ class DiscreteVActorCritic(DiscreteActionMixin, VNetworkMixin, RLPolicy):
         return [
             {"action": action, "logp": logp, "value": value} for action, logp, value in zip(actions, logps, values)
         ]
-        # return self.get_actions_with_logps_and_values(states)[0]
 
-    def get_actions_with_logps_and_values(
-        self, states: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_actions_with_logps_and_values(self, states: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         self._ac_net.eval()
         states = torch.from_numpy(states).to(self._device)
         if len(states.shape) == 1:
             states = states.unsqueeze(dim=0)
         with torch.no_grad():
-            values = self._ac_net.get_values(states)
             if not self._in_exploration_mode:
                 actions, logps = self._ac_net.get_actions_and_logps_exploitation(states)
             else:
                 actions, logps = self._ac_net.get_actions_and_logps_exploration(states)
+            values = self._get_values_by_states_and_actions(states, actions)
         actions, logps, values = actions.cpu().numpy(), logps.cpu().numpy(), values.cpu().numpy()
         return actions, logps, values
 
-    def data_parallel(self, *args, **kwargs) -> None:
-        raise NotImplementedError  # TODO
+    @abstractmethod
+    def _get_values_by_states_and_actions(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
+        pass
 
     def action_num(self) -> int:
         return self._ac_net.action_num
-
-    def v_values(self, states: np.ndarray) -> np.ndarray:
-        return self._ac_net.v_critic(torch.Tensor(states)).numpy()
 
     def record(
         self,
@@ -101,12 +93,6 @@ class DiscreteVActorCritic(DiscreteActionMixin, VNetworkMixin, RLPolicy):
         self._buffer[key].put(state, action, reward, terminal)
 
     def get_rollout_info(self) -> dict:
-        """Extract information from the recorded transitions.
-
-        Returns:
-            Loss (including gradients) for the latest trajectory segment in the replay buffer if ``get_loss_on_rollout``
-            is True or the latest trajectory segment with pre-computed return and advantage values.
-        """
         if self._get_loss_on_rollout:
             return self.get_batch_loss(self._get_batch(), explicit_grad=True)
         else:
@@ -130,13 +116,6 @@ class DiscreteVActorCritic(DiscreteActionMixin, VNetworkMixin, RLPolicy):
         return {key: np.concatenate(vals) for key, vals in batch.items()}
 
     def get_batch_loss(self, batch: dict, explicit_grad: bool = False) -> dict:
-        """Compute AC loss for a data batch.
-
-        Args:
-            batch (dict): A batch containing "states", "actions", "logps", "returns" and "advantages" as keys.
-            explicit_grad (bool): If True, the gradients should be returned as part of the loss information. Defaults
-                to False.
-        """
         self._ac_net.train()
         states = torch.from_numpy(batch["states"]).to(self._device)
         actions = torch.from_numpy(batch["actions"]).to(self._device).long()
@@ -145,7 +124,7 @@ class DiscreteVActorCritic(DiscreteActionMixin, VNetworkMixin, RLPolicy):
         advantages = torch.from_numpy(batch["advantages"]).to(self._device)
 
         action_probs = self._ac_net.get_probs(states)
-        state_values = self._ac_net.get_values(states)
+        state_values = self._get_values_by_states_and_actions(states, actions)
         state_values = state_values.squeeze()
 
         # actor loss
@@ -177,27 +156,77 @@ class DiscreteVActorCritic(DiscreteActionMixin, VNetworkMixin, RLPolicy):
 
         return loss_info
 
-    def update(self, loss_info_list: List[dict]) -> None:
-        """Update the model parameters with gradients computed by multiple roll-out instances or gradient workers.
+    def data_parallel(self, *args, **kwargs) -> None:
+        pass  # TODO
 
-        Args:
-            loss_info_list (List[dict]): A list of dictionaries containing loss information (including gradients)
-                computed by multiple roll-out instances or gradient workers.
-        """
+    def update(self, loss_info_list: List[dict]) -> None:
         self._ac_net.apply_gradients(average_grads([loss_info["grad"] for loss_info in loss_info_list]))
 
     def learn(self, batch: dict) -> None:
-        """Learn from a batch containing data required for policy improvement.
-
-        Args:
-            batch (dict): A batch containing "states", "actions", "logps", "returns" and "advantages" as keys.
-        """
         for _ in range(self._grad_iters):
             self._ac_net.step(self.get_batch_loss(batch)["loss"])
 
     def improve(self) -> None:
-        """Learn using data from the buffer."""
         self.learn(self._get_batch())
+
+    def get_state(self) -> object:
+        return self._ac_net.get_state()
+
+    def set_state(self, state) -> None:
+        self._ac_net.set_state(state)
+
+    def load(self, path: str) -> None:
+        self._ac_net.set_state(torch.load(path))
+
+    def save(self, path: str) -> None:
+        torch.save(self._ac_net.get_state(), path)
+
+
+class DiscreteVActorCritic(VNetworkMixin, DiscreteActorCritic):
+    def __init__(
+        self,
+        name: str,
+        ac_net: DiscreteVActorCriticNet,
+        reward_discount: float,
+        grad_iters: int = 1,
+        critic_loss_cls: Callable = None,
+        min_logp: float = None,
+        critic_loss_coef: float = 1.0,
+        entropy_coef: float = .0,
+        clip_ratio: float = None,
+        lam: float = 0.9,
+        max_trajectory_len: int = 10000,
+        get_loss_on_rollout: bool = False,
+        device: str = None
+    ) -> None:
+        if not isinstance(ac_net, DiscreteVActorCriticNet):
+            raise TypeError("model must be an instance of 'DiscreteVActorCriticNet'")
+
+        super(DiscreteVActorCritic, self).__init__(
+            name=name,
+            ac_net=ac_net,
+            reward_discount=reward_discount,
+            grad_iters=grad_iters,
+            critic_loss_cls=critic_loss_cls,
+            min_logp=min_logp,
+            critic_loss_coef=critic_loss_coef,
+            entropy_coef=entropy_coef,
+            clip_ratio=clip_ratio,
+            lam=lam,
+            max_trajectory_len=max_trajectory_len,
+            get_loss_on_rollout=get_loss_on_rollout,
+            device=device,
+        )
+
+    def _get_values_by_states_and_actions(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
+        return self._get_v_critic(states)
+
+    def _get_v_critic(self, states: torch.Tensor) -> torch.Tensor:
+        assert isinstance(self._ac_net, DiscreteVActorCriticNet)
+        return self._ac_net.v_critic(states)
+
+    def v_values(self, states: np.ndarray) -> np.ndarray:
+        return self._get_v_critic(torch.Tensor(states)).numpy()
 
     def learn_with_data_parallel(self, batch: dict, worker_id_list: list) -> None:
         assert hasattr(self, '_proxy'), "learn_with_data_parallel is invalid before data_parallel is called."
@@ -229,16 +258,81 @@ class DiscreteVActorCritic(DiscreteActionMixin, VNetworkMixin, RLPolicy):
             _ = self.get_batch_loss(sub_batch, explicit_grad=True)
             self.update(loss_info_by_policy[self._name])
 
-    def get_state(self) -> object:
-        return self._ac_net.get_state()
 
-    def set_state(self, state) -> None:
-        self._ac_net.set_state(state)
+class DiscreteQActorCritic(QNetworkMixin, DiscreteActorCritic):
+    def __init__(
+        self,
+        name: str,
+        ac_net: DiscreteQActorCriticNet,
+        reward_discount: float,
+        grad_iters: int = 1,
+        critic_loss_cls: Callable = None,
+        min_logp: float = None,
+        critic_loss_coef: float = 1.0,
+        entropy_coef: float = .0,
+        clip_ratio: float = None,
+        lam: float = 0.9,
+        max_trajectory_len: int = 10000,
+        get_loss_on_rollout: bool = False,
+        device: str = None
+    ) -> None:
+        if not isinstance(ac_net, DiscreteQActorCriticNet):
+            raise TypeError("model must be an instance of 'DiscreteQActorCriticNet'")
 
-    def load(self, path: str) -> None:
-        """Load the policy state from disk."""
-        self._ac_net.set_state(torch.load(path))
+        super(DiscreteQActorCritic, self).__init__(
+            name=name,
+            ac_net=ac_net,
+            reward_discount=reward_discount,
+            grad_iters=grad_iters,
+            critic_loss_cls=critic_loss_cls,
+            min_logp=min_logp,
+            critic_loss_coef=critic_loss_coef,
+            entropy_coef=entropy_coef,
+            clip_ratio=clip_ratio,
+            lam=lam,
+            max_trajectory_len=max_trajectory_len,
+            get_loss_on_rollout=get_loss_on_rollout,
+            device=device,
+        )
 
-    def save(self, path: str) -> None:
-        """Save the policy state to disk."""
-        torch.save(self._ac_net.get_state(), path)
+    def _get_values_by_states_and_actions(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
+        return self._get_q_critic(states, actions)
+
+    def _get_q_critic(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
+        assert isinstance(self._ac_net, DiscreteQActorCriticNet)
+        return self._ac_net.q_critic(states, actions)
+
+    def q_values(self, states: np.ndarray, actions: np.ndarray) -> np.ndarray:
+        states = torch.Tensor(states)
+        actions = torch.Tensor(actions)
+        return self._get_q_critic(states, actions).numpy()
+
+    def learn_with_data_parallel(self, batch: dict, worker_id_list: list) -> None:  # TODO: check with Guangqi
+        assert hasattr(self, '_proxy'), "learn_with_data_parallel is invalid before data_parallel is called."
+        for _ in range(self._grad_iters):
+            msg_dict = defaultdict(lambda: defaultdict(dict))
+            sub_batch = {}
+            for i, worker_id in enumerate(worker_id_list):
+                sub_batch = {key: batch[key][i::len(worker_id_list)] for key in batch}
+                msg_dict[worker_id][MsgKey.GRAD_TASK][self._name] = sub_batch
+                msg_dict[worker_id][MsgKey.POLICY_STATE][self._name] = self.get_state()
+                # data-parallel
+                self._proxy.isend(SessionMessage(
+                    MsgTag.COMPUTE_GRAD, self._proxy.name, worker_id, body=msg_dict[worker_id]))
+            dones = 0
+            loss_info_by_policy = {self._name: []}
+            for msg in self._proxy.receive():
+                if msg.tag == MsgTag.COMPUTE_GRAD_DONE:
+                    for policy_name, loss_info in msg.body[MsgKey.LOSS_INFO].items():
+                        if isinstance(loss_info, list):
+                            loss_info_by_policy[policy_name] += loss_info
+                        elif isinstance(loss_info, dict):
+                            loss_info_by_policy[policy_name].append(loss_info)
+                        else:
+                            raise TypeError(f"Wrong type of loss_info: {type(loss_info)}")
+                    dones += 1
+                    if dones == len(msg_dict):
+                        break
+            # build dummy computation graph by `get_batch_loss` before apply gradients.
+            _ = self.get_batch_loss(sub_batch, explicit_grad=True)
+            self.update(loss_info_by_policy[self._name])
