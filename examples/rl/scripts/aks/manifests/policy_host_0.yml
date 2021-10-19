@@ -36,14 +36,16 @@ spec:
           value: cim-policies
         - name: NUMHOSTS
           value: '2'
-        image: marorl.azurecr.cn/marorl
+        image: marorl.azurecr.io/marorl
         imagePullPolicy: Always
         name: policy-host-0
         volumeMounts:
         - mountPath: rltest
           name: maro
+      imagePullSecrets:
+      - name: maro-image
       nodeSelector:
-        agentpool: sc
+        agentpool: cim
       restartPolicy: Never
       volumes:
       - azureFile:

@@ -13,13 +13,13 @@ spec:
         - name: ROLLOUTTYPE
           value: distributed
         - name: NUMEPISODES
-          value: '10'
+          value: '4'
         - name: NUMROLLOUTS
           value: '3'
+        - name: EVALSCH
+          value: '2'
         - name: ROLLOUTGROUP
           value: cim-rollout
-        - name: EVALSCH
-          value: '5'
         - name: MINFINISH
           value: '2'
         - name: MAXEXRECV
@@ -52,14 +52,16 @@ spec:
           value: cim-policies
         - name: NUMHOSTS
           value: '2'
-        image: marorl.azurecr.cn/marorl
+        image: marorl.azurecr.io/marorl
         imagePullPolicy: Always
         name: main
         volumeMounts:
         - mountPath: rltest
           name: maro
+      imagePullSecrets:
+      - name: maro-image
       nodeSelector:
-        agentpool: sc
+        agentpool: cim
       restartPolicy: Never
       volumes:
       - azureFile:
