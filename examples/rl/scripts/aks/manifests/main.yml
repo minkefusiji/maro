@@ -13,7 +13,7 @@ spec:
         - name: ROLLOUTTYPE
           value: distributed
         - name: NUMEPISODES
-          value: '4'
+          value: '100'
         - name: NUMROLLOUTS
           value: '3'
         - name: EVALSCH

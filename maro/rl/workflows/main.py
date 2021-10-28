@@ -30,6 +30,7 @@ if __name__ == "__main__":
     num_steps = from_env("NUMSTEPS", required=False, default=-1)
 
     logger = Logger("MAIN", dump_folder=log_dir)
+    logger_measure = Logger("MEASURE", dump_folder=log_dir)
     # evaluation schedule
     eval_schedule = get_eval_schedule(from_env("EVALSCH", required=False, default=None), num_episodes)
     logger.info(f"Policy will be evaluated at the end of episodes {eval_schedule}")
@@ -99,6 +100,7 @@ if __name__ == "__main__":
 
             # performance details
             logger.info(f"ep {ep} summary - collect time: {collect_time}, policy update time: {policy_update_time}")
+            logger_measure.info(f"ep {ep} summary - collect time: {collect_time}, policy update time: {policy_update_time}")
             if eval_schedule and ep == eval_schedule[eval_point_index]:
                 eval_point_index += 1
                 trackers = rollout_manager.evaluate(ep, policy_manager.get_state())
