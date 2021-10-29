@@ -9,6 +9,7 @@ import time
 from maro.rl.learning.helpers import get_rollout_finish_msg
 from maro.rl.workflows.helpers import from_env, get_default_log_dir, get_eval_schedule
 from maro.utils import Logger
+from telemetry import log
 
 sys.path.insert(0, from_env("SCENARIODIR"))
 module = importlib.import_module(from_env("SCENARIO"))
@@ -30,7 +31,6 @@ if __name__ == "__main__":
     num_steps = from_env("NUMSTEPS", required=False, default=-1)
 
     logger = Logger("MAIN", dump_folder=log_dir)
-    logger_measure = Logger("MEASURE", dump_folder=log_dir)
     # evaluation schedule
     eval_schedule = get_eval_schedule(from_env("EVALSCH", required=False, default=None), num_episodes)
     logger.info(f"Policy will be evaluated at the end of episodes {eval_schedule}")
@@ -100,7 +100,8 @@ if __name__ == "__main__":
 
             # performance details
             logger.info(f"ep {ep} summary - collect time: {collect_time}, policy update time: {policy_update_time}")
-            logger_measure.info(f"ep {ep} summary - collect time: {collect_time}, policy update time: {policy_update_time}")
+            log.duration("collect_time", collect_time, episode=ep)
+            log.duration("policy_update_time", policy_update_time, episode=ep)
             if eval_schedule and ep == eval_schedule[eval_point_index]:
                 eval_point_index += 1
                 trackers = rollout_manager.evaluate(ep, policy_manager.get_state())

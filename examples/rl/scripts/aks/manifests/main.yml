@@ -52,6 +52,16 @@ spec:
           value: cim-policies
         - name: NUMHOSTS
           value: '2'
+        - name: TELEMETRY_TYPE
+          value: "mon3"
+        - name: MON3_SERVER
+          value: "ks2-log-dev.westus2.cloudapp.azure.com:5201"
+        - name: KENSHO2_PROFILE
+          value: "maro"
+        - name: MON3_APP
+          value: "main"
+        - name: MON3_SERVICE
+          value: "main"
         image: marorl.azurecr.io/marorl
         imagePullPolicy: Always
         name: main
