@@ -9,7 +9,7 @@ from maro.rl.exploration import MultiLinearExplorationScheduler, epsilon_greedy
 
 env_conf = {
     "scenario": "cim",
-    "topology": "toy.4p_ssdd_l0.0",
+    "topology": "global_trade.22p_l0.8",
     "durations": 1095
 }
 
