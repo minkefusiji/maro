@@ -31,6 +31,7 @@ if __name__ == "__main__":
     num_steps = from_env("NUMSTEPS", required=False, default=-1)
 
     logger = Logger("MAIN", dump_folder=log_dir)
+    logger_measure = Logger("MESASURE", dump_folder=os.path.join(log_dir, "MEASURE"))
     # evaluation schedule
     eval_schedule = get_eval_schedule(from_env("EVALSCH", required=False, default=None), num_episodes)
     logger.info(f"Policy will be evaluated at the end of episodes {eval_schedule}")
@@ -101,6 +102,7 @@ if __name__ == "__main__":
             # performance details
             logger.info(f"ep {ep} summary - collect time: {collect_time}, policy update time: {policy_update_time}")
             log.duration("collect_time", collect_time, episode=ep)
+            logger_measure.info(f"{ep},{collect_time},{policy_update_time}")
             log.duration("policy_update_time", policy_update_time, episode=ep)
             if eval_schedule and ep == eval_schedule[eval_point_index]:
                 eval_point_index += 1
