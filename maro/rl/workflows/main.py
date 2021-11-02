@@ -101,8 +101,8 @@ if __name__ == "__main__":
 
             # performance details
             logger.info(f"ep {ep} summary - collect time: {collect_time}, policy update time: {policy_update_time}")
-            log.duration("collect_time", collect_time, episode=ep)
             logger_measure.info(f"{ep},{collect_time},{policy_update_time}")
+            log.duration("rollout_collect_time", collect_time, episode=ep)
             log.duration("policy_update_time", policy_update_time, episode=ep)
             if eval_schedule and ep == eval_schedule[eval_point_index]:
                 eval_point_index += 1
